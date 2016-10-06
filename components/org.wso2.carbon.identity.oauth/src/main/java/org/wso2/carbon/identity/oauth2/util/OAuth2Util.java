@@ -1012,7 +1012,7 @@ public class OAuth2Util {
             OMElement element = (OMElement) it.next();
             if ("Claim".equals(element.getLocalName())) {
                 String commaSeparatedClaimNames = element.getText();
-                if(StringUtils.isNotEmpty(commaSeparatedClaimNames)){
+                if(StringUtils.isNotBlank(commaSeparatedClaimNames)){
                     claimConfig.append(commaSeparatedClaimNames.trim());
                 }
             }
