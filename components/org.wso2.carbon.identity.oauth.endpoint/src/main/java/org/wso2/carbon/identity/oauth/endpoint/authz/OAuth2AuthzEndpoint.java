@@ -1097,28 +1097,14 @@ public class OAuth2AuthzEndpoint {
                         OIDCSessionManagementUtil.getSessionManager()
                                                  .getOIDCSessionState(opBrowserStateCookie.getValue());
                 if (previousSessionState != null) {
-                    if (previousSessionState.getAuthenticatedUser().equals(authenticatedUser)) {
-
-                        if (!previousSessionState.getSessionParticipants().contains(oAuth2Parameters.getClientId())) {
-                            // User is authenticated to a new client. Restore browser session state
-                            String oldOPBrowserStateCookieId = opBrowserStateCookie.getValue();
-                            opBrowserStateCookie = OIDCSessionManagementUtil.addOPBrowserStateCookie(response);
-                            String newOPBrowserStateCookieId = opBrowserStateCookie.getValue();
-                            previousSessionState.addSessionParticipant(oAuth2Parameters.getClientId());
-                            OIDCSessionManagementUtil.getSessionManager()
-                                                     .restoreOIDCSessionState(oldOPBrowserStateCookieId,
-                                                                              newOPBrowserStateCookieId,
-                                                                              previousSessionState);
-                        }
-                    } else {
-                        if (log.isDebugEnabled()) {
-                            log.debug("Existing session is not authenticated for the given user " + authenticatedUser);
-                        }
-                        redirectURL = EndpointUtil.getErrorPageURL(OAuth2ErrorCodes.ACCESS_DENIED,
-                                                                   "No valid session found for the authenticated user " +
-                                                                   authenticatedUser,
-                                                                   oAuth2Parameters.getApplicationName());
-                        sessionStateObj.setAddSessionState(false);
+                    if (!previousSessionState.getSessionParticipants().contains(oAuth2Parameters.getClientId())) {
+                        // User is authenticated to a new client. Restore browser session state
+                        String oldOPBrowserStateCookieId = opBrowserStateCookie.getValue();
+                        opBrowserStateCookie = OIDCSessionManagementUtil.addOPBrowserStateCookie(response);
+                        String newOPBrowserStateCookieId = opBrowserStateCookie.getValue();
+                        previousSessionState.addSessionParticipant(oAuth2Parameters.getClientId());
+                        OIDCSessionManagementUtil.getSessionManager().restoreOIDCSessionState
+                                (oldOPBrowserStateCookieId, newOPBrowserStateCookieId, previousSessionState);
                     }
                 } else {
                     log.warn("No session state found for the received Session ID : " + opBrowserStateCookie.getValue());
