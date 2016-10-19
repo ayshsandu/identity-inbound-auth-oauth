@@ -372,9 +372,13 @@ public class TokenResponseTypeHandler extends AbstractResponseTypeHandler {
             // Add the access token to the cache.
             if (cacheEnabled) {
                 oauthCache.addToCache(cacheKey, newAccessTokenDO);
+                // Adding AccessTokenDO to improve validation performance
+                OAuthCacheKey accessTokenCacheKey = new OAuthCacheKey(accessToken);
+                oauthCache.addToCache(accessTokenCacheKey, newAccessTokenDO);
                 if (log.isDebugEnabled()) {
-                    log.debug("Access Token was added to OAuthCache for " +
-                            "cache key : " + cacheKey.getCacheKeyString());
+                    log.debug("Access Token was added to OAuthCache for cache key : " + cacheKey.getCacheKeyString());
+                    log.debug("Access Token was added to OAuthCache for cache key : " + accessTokenCacheKey
+                            .getCacheKeyString());
                 }
             }
 

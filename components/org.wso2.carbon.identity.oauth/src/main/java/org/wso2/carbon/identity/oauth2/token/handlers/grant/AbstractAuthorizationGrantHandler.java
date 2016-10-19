@@ -235,9 +235,14 @@ public abstract class AbstractAuthorizationGrantHandler implements Authorization
                     }
                     if (cacheEnabled) {
                         oauthCache.addToCache(cacheKey, existingAccessTokenDO);
+                        // Adding AccessTokenDO to improve validation performance
+                        OAuthCacheKey accessTokenCacheKey = new OAuthCacheKey(existingAccessTokenDO.getAccessToken());
+                        oauthCache.addToCache(accessTokenCacheKey, existingAccessTokenDO);
                         if (log.isDebugEnabled()) {
                             log.debug("Access Token info was added to the cache for the cache key : " +
                                     cacheKey.getCacheKeyString());
+                            log.debug("Access token was added to OAuthCache for cache key : " + accessTokenCacheKey
+                                    .getCacheKeyString());
                         }
                     }
 
@@ -394,9 +399,13 @@ public abstract class AbstractAuthorizationGrantHandler implements Authorization
             //update cache with newly added token
             if (cacheEnabled) {
                 oauthCache.addToCache(cacheKey, newAccessTokenDO);
+                // Adding AccessTokenDO to improve validation performance
+                OAuthCacheKey accessTokenCacheKey = new OAuthCacheKey(newAccessToken);
+                oauthCache.addToCache(accessTokenCacheKey, newAccessTokenDO);
                 if (log.isDebugEnabled()) {
-                    log.debug("Access token was added to OAuthCache for cache key : " +
-                            cacheKey.getCacheKeyString());
+                    log.debug("Access token was added to OAuthCache for cache key : " + cacheKey.getCacheKeyString());
+                    log.debug("Access token was added to OAuthCache for cache key : " + accessTokenCacheKey
+                            .getCacheKeyString());
                 }
             }
 
