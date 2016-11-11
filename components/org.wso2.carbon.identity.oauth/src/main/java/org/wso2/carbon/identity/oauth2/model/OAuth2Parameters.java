@@ -46,6 +46,7 @@ public class OAuth2Parameters implements Serializable {
     private String tenantDomain;
     private String essentialClaims;
     private long authTime;
+    private String responseMode;
 
     public long getAuthTime() {
         return authTime;
@@ -211,5 +212,13 @@ public class OAuth2Parameters implements Serializable {
 
     public void setEssentialClaims(String essentialClaims) {
         this.essentialClaims = essentialClaims;
+    }
+
+    public String getResponseMode() {
+        return responseMode;
+    }
+
+    public void setResponseMode(String responseMode) {
+        this.responseMode = responseMode;
     }
 }
