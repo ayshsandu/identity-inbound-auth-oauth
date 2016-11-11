@@ -27,6 +27,7 @@ import org.apache.oltu.oauth2.common.OAuth;
 import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.apache.oltu.oauth2.common.message.OAuthResponse;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
 import org.wso2.carbon.identity.application.authentication.framework.AuthenticatorFlowStatus;
@@ -334,7 +335,7 @@ public class OAuth2AuthzEndpoint {
 
                     String authenticatedIdPs = sessionDataCacheEntry.getAuthenticatedIdPs();
 
-                    if (RESPONSE_MODE_FORM_POST.equals(oauth2Params.getResponseMode())) {
+                    if (RESPONSE_MODE_FORM_POST.equals(oauth2Params.getResponseMode()) && isJSON(redirectURL)) {
 
                         String sessionStateValue = null;
                         if (isOIDCRequest) {
@@ -438,6 +439,16 @@ public class OAuth2AuthzEndpoint {
 
             PrivilegedCarbonContext.endTenantFlow();
         }
+    }
+
+    private boolean isJSON(String redirectURL) {
+
+        try {
+            new JSONObject(redirectURL);
+        } catch (JSONException ex) {
+            return false;
+        }
+        return true;
     }
 
     private String createFormPage(String jsonPayLoad, String redirectURI, String authenticatedIdPs,
@@ -1188,7 +1199,7 @@ public class OAuth2AuthzEndpoint {
             redirectURL = OIDCSessionManagementUtil.addSessionStateToURL(redirectURL, sessionStateParam,
                                                                          oAuth2Parameters.getResponseType());
 
-            if (RESPONSE_MODE_FORM_POST.equals(oAuth2Parameters.getResponseMode())) {
+            if (RESPONSE_MODE_FORM_POST.equals(oAuth2Parameters.getResponseMode()) && isJSON(redirectURL)) {
                 return sessionStateParam;
             }
         }
