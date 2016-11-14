@@ -253,6 +253,20 @@ public class OAuth2AuthzEndpoint {
                         redirectURL =
                                 doUserAuthz(request, sessionDataKeyFromLogin, sessionDataCacheEntry, sessionState);
 
+                        if (RESPONSE_MODE_FORM_POST.equals(oauth2Params.getResponseMode()) && isJSON(redirectURL)) {
+
+                            String sessionStateValue = null;
+                            if (isOIDCRequest) {
+                                sessionState.setAddSessionState(true);
+                                sessionStateValue = manageOIDCSessionState(request, response, sessionState, oauth2Params,
+                                        sessionDataCacheEntry.getLoggedInUser().getAuthenticatedSubjectIdentifier(),
+                                        redirectURL);
+                            }
+
+                            return Response.ok(createFormPage(redirectURL, oauth2Params.getRedirectURI(),
+                                    StringUtils.EMPTY, sessionStateValue)).build();
+                        }
+
                         if (isOIDCRequest) {
                             redirectURL = manageOIDCSessionState(request, response, sessionState, oauth2Params,
                                                                  authenticatedUser.getAuthenticatedSubjectIdentifier(),
