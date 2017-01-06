@@ -389,16 +389,6 @@ public class OAuth2AuthzEndpoint {
                                 authenticatedIdPs, sessionStateValue)).build();
                     }
 
-                    if (authenticatedIdPs != null && !authenticatedIdPs.isEmpty()) {
-                        try {
-                            redirectURL = redirectURL + "&AuthenticatedIdPs=" + URLEncoder.encode(authenticatedIdPs
-                                    , "UTF-8");
-                        } catch (UnsupportedEncodingException e) {
-                            //this exception should not occur
-                            log.error("Error while encoding the url", e);
-                        }
-                    }
-
                     if (isOIDCRequest) {
                         sessionState.setAddSessionState(true);
                         redirectURL = manageOIDCSessionState(request, response, sessionState, oauth2Params,
@@ -628,6 +618,10 @@ public class OAuth2AuthzEndpoint {
             String redirectURL = authzRespDTO.getCallbackURI();
 
             if (RESPONSE_MODE_FORM_POST.equals(oauth2Params.getResponseMode())) {
+                String authenticatedIdPs = sessionDataCacheEntry.getAuthenticatedIdPs();
+                if (authenticatedIdPs != null && !authenticatedIdPs.isEmpty()) {
+                    builder.setParam("AuthenticatedIdPs", sessionDataCacheEntry.getAuthenticatedIdPs());
+                }
                 oauthResponse = builder.location(redirectURL).buildJSONMessage();
             } else {
                 oauthResponse = builder.location(redirectURL).buildQueryMessage();
@@ -668,7 +662,8 @@ public class OAuth2AuthzEndpoint {
                 return oauthResponse.getLocationUri().replace("?", "#");
             }
         } else {
-            return oauthResponse.getBody() == null ? oauthResponse.getLocationUri() : oauthResponse.getBody();
+            return oauthResponse.getBody() == null ? appendAuthenticatedIDPs(sessionDataCacheEntry, oauthResponse
+                    .getLocationUri()) : oauthResponse.getBody();
         }
     }
 
@@ -1262,4 +1257,21 @@ public class OAuth2AuthzEndpoint {
         return redirectURL;
     }
 
+    private String appendAuthenticatedIDPs(SessionDataCacheEntry sessionDataCacheEntry, String redirectURL) {
+        if (sessionDataCacheEntry != null) {
+            String authenticatedIdPs = sessionDataCacheEntry.getAuthenticatedIdPs();
+
+            if (authenticatedIdPs != null && !authenticatedIdPs.isEmpty()) {
+                try {
+                    String IDPAppendedRedirectURL = redirectURL + "&AuthenticatedIdPs=" + URLEncoder.encode
+                            (authenticatedIdPs, "UTF-8");
+                    return IDPAppendedRedirectURL;
+                } catch (UnsupportedEncodingException e) {
+                    //this exception should not occur
+                    log.error("Error while encoding the url", e);
+                }
+            }
+        }
+        return redirectURL;
+    }
 }
