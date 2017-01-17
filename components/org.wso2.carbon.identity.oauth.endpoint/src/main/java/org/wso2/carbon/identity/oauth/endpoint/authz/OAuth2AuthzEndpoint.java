@@ -222,10 +222,14 @@ public class OAuth2AuthzEndpoint {
                 if (cookie != null) {
                     String sessionContextKey = cookie.getValue();
                     SessionContext sessionContext = FrameworkUtils.getSessionContextFromCache(sessionContextKey);
-                    if (sessionContext.getProperty(FrameworkConstants.UPDATED_TIMESTAMP) != null) {
-                        authTime = Long.parseLong(sessionContext.getProperty(FrameworkConstants.UPDATED_TIMESTAMP).toString());
-                    } else {
-                        authTime = Long.parseLong(sessionContext.getProperty(FrameworkConstants.CREATED_TIMESTAMP).toString());
+                    if (sessionContext != null) {
+                        if (sessionContext.getProperty(FrameworkConstants.UPDATED_TIMESTAMP) != null) {
+                            authTime = Long.parseLong(
+                                    sessionContext.getProperty(FrameworkConstants.UPDATED_TIMESTAMP).toString());
+                        } else {
+                            authTime = Long.parseLong(
+                                    sessionContext.getProperty(FrameworkConstants.CREATED_TIMESTAMP).toString());
+                        }
                     }
                 }
                 sessionDataCacheEntry = resultFromLogin;
