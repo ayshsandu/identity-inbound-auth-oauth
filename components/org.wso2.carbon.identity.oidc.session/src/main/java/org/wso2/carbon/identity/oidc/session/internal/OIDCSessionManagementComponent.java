@@ -26,6 +26,7 @@ import org.osgi.service.http.HttpService;
 import org.wso2.carbon.identity.oidc.session.OIDCSessionConstants;
 import org.wso2.carbon.identity.oidc.session.servlet.OIDCLogoutServlet;
 import org.wso2.carbon.identity.oidc.session.servlet.OIDCSessionIFrameServlet;
+import org.wso2.carbon.user.core.service.RealmService;
 
 import javax.servlet.Servlet;
 
