@@ -63,6 +63,7 @@ import org.wso2.carbon.identity.oauth2.util.OAuth2Util;
 import org.wso2.carbon.identity.oidc.session.OIDCSessionState;
 import org.wso2.carbon.identity.oidc.session.util.OIDCSessionManagementUtil;
 import org.wso2.carbon.registry.core.utils.UUIDGenerator;
+import org.wso2.carbon.utils.CarbonUtils;
 import org.wso2.carbon.utils.multitenancy.MultitenantConstants;
 
 import java.io.IOException;
@@ -70,10 +71,14 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Scanner;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.servlet.ServletException;
@@ -102,6 +107,24 @@ public class OAuth2AuthzEndpoint {
     private static final String REDIRECT_URI = "redirect_uri";
     private static final String RESPONSE_MODE_FORM_POST = "form_post";
     private static final String RESPONSE_MODE = "response_mode";
+    private static final String formPostRedirectPage = getFormPostRedirectPage();
+
+    private static String getFormPostRedirectPage() {
+
+        java.nio.file.Path path = Paths.get(CarbonUtils.getCarbonHome(), "repository", "resources",
+                "identity", "pages", "oauth_response.html");
+        if (Files.exists(path)) {
+            try {
+                return new Scanner(Files.newInputStream(path), "UTF-8").useDelimiter("\\A").next();
+            } catch (IOException e) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Failed to find OAuth From post response page in : " + path.toString());
+                }
+            }
+        }
+        return null;
+    }
+
 
     @GET
     @Path("/")
@@ -472,7 +495,11 @@ public class OAuth2AuthzEndpoint {
     private String createFormPage(String jsonPayLoad, String redirectURI, String authenticatedIdPs,
                                   String sessionStateValue) {
 
-        JSONObject jsonObject = new JSONObject(jsonPayLoad);
+        if (StringUtils.isNotBlank(formPostRedirectPage)) {
+            String newPage = formPostRedirectPage;
+            String pageWithRedirectURI = newPage.replace("$redirectURI", redirectURI);
+            return pageWithRedirectURI.replace("<!--$params-->", buildParams(jsonPayLoad, authenticatedIdPs, sessionStateValue));
+        }
 
         String formHead = "<html>\n" +
                 "   <head><title>Submit This Form</title></head>\n" +
@@ -486,9 +513,18 @@ public class OAuth2AuthzEndpoint {
                 "</html>";
 
         StringBuilder form = new StringBuilder(formHead);
+        form.append(buildParams(jsonPayLoad, authenticatedIdPs, sessionStateValue));
+        form.append(formBottom);
+        return form.toString();
+    }
+
+    private String buildParams(String jsonPayLoad, String authenticatedIdPs, String sessionStateValue) {
+
+        JSONObject jsonObject = new JSONObject(jsonPayLoad);
+        StringBuilder paramStringBuilder = new StringBuilder();
 
         for (Object key : jsonObject.keySet()) {
-            form.append("<input type=\"hidden\" name=\"")
+            paramStringBuilder.append("<input type=\"hidden\" name=\"")
                     .append(key)
                     .append("\"" + "value=\"")
                     .append(jsonObject.get(key.toString()))
@@ -496,20 +532,17 @@ public class OAuth2AuthzEndpoint {
         }
 
         if (authenticatedIdPs != null && !authenticatedIdPs.isEmpty()) {
-            form.append("<input type=\"hidden\" name=\"AuthenticatedIdPs\" value=\"")
+            paramStringBuilder.append("<input type=\"hidden\" name=\"AuthenticatedIdPs\" value=\"")
                     .append(authenticatedIdPs)
                     .append("\"/>\n");
         }
 
         if (sessionStateValue != null && !sessionStateValue.isEmpty()) {
-            form.append("<input type=\"hidden\" name=\"session_state\" value=\"")
+            paramStringBuilder.append("<input type=\"hidden\" name=\"session_state\" value=\"")
                     .append(sessionStateValue)
                     .append("\"/>\n");
         }
-
-        form.append(formBottom);
-
-        return form.toString();
+        return paramStringBuilder.toString();
     }
 
     /**
