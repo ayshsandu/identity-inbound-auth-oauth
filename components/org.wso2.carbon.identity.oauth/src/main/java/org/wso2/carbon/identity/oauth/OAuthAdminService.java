@@ -639,18 +639,19 @@ public class OAuthAdminService extends AbstractAdmin {
                                     log.error(errorMsg, e);
                                     throw new IdentityOAuthAdminException(errorMsg, e);
                                 }
+                                //Revoking the oauth consent from database.
+                                try {
+                                    tokenMgtDAO.revokeOAuthConsentByApplicationAndUser(((AuthenticatedUser) authzUser)
+                                            .getAuthenticatedSubjectIdentifier(), tenantDomain, appName);
+                                } catch (IdentityOAuth2Exception e) {
+                                    String errorMsg = "Error occurred while removing OAuth Consent of Application " + appName +
+                                            " of user " + userName;
+                                    log.error(errorMsg, e);
+                                    throw new IdentityOAuthAdminException(errorMsg, e);
+                                }
                             }
                             triggerPostRevokeListeners(revokeRequestDTO, new OAuthRevocationResponseDTO
                                     (), accessTokenDOs.toArray(new AccessTokenDO[accessTokenDOs.size()]));
-                        }
-
-                        try {
-                            tokenMgtDAO.revokeOAuthConsentByApplicationAndUser(tenantAwareUserName, tenantDomain, appName);
-                        } catch (IdentityOAuth2Exception e) {
-                            String errorMsg = "Error occurred while removing OAuth Consent of Application " + appName +
-                                    " of user " + userName;
-                            log.error(errorMsg, e);
-                            throw new IdentityOAuthAdminException(errorMsg, e);
                         }
                     }
                 }
