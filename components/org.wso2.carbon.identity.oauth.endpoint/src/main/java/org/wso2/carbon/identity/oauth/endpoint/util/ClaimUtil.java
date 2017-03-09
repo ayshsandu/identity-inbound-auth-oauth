@@ -18,7 +18,9 @@
 
 package org.wso2.carbon.identity.oauth.endpoint.util;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
@@ -144,7 +146,7 @@ public class ClaimUtil {
 
                 for (Map.Entry<String, String> entry : userClaims.entrySet()) {
                     //set local2sp role mappings
-                    if (entry.getKey().equals(FrameworkConstants.LOCAL_ROLE_CLAIM_URI)) {
+                    if (FrameworkConstants.LOCAL_ROLE_CLAIM_URI.equals(entry.getKey())) {
                         String domain = IdentityUtil.extractDomainFromName(username);
                         RealmConfiguration realmConfiguration = realm.getUserStoreManager().getSecondaryUserStoreManager(domain)
                                 .getRealmConfiguration();
@@ -195,11 +197,9 @@ public class ClaimUtil {
      */
     public static String getServiceProviderMappedUserRoles(ServiceProvider serviceProvider,
             List<String> locallyMappedUserRoles, String claimSeparator) throws FrameworkException {
-        if (locallyMappedUserRoles != null && !locallyMappedUserRoles.isEmpty()) {
-
+        if (CollectionUtils.isNotEmpty(locallyMappedUserRoles)) {
             RoleMapping[] localToSpRoleMapping = serviceProvider.getPermissionAndRoleConfig().getRoleMappings();
-
-            if (localToSpRoleMapping == null || localToSpRoleMapping.length == 0) {
+            if (ArrayUtils.isEmpty(localToSpRoleMapping)) {
                 return null;
             }
 

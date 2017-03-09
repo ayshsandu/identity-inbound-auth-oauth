@@ -21,6 +21,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import net.minidev.json.JSONArray;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -315,7 +316,7 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
 
             //set local2sp role mappings
             for (Map.Entry<String, String> claim : userClaims.entrySet()) {
-                if (claim.getKey().equals(FrameworkConstants.LOCAL_ROLE_CLAIM_URI)) {
+                if (FrameworkConstants.LOCAL_ROLE_CLAIM_URI.equals(claim.getKey())) {
                     String roleClaim = claim.getValue();
                     List<String> rolesList = new LinkedList<>(Arrays.asList(roleClaim.split(claimSeparator)));
 
@@ -373,11 +374,11 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
      */
     private static String getServiceProviderMappedUserRoles(ServiceProvider serviceProvider,
             List<String> locallyMappedUserRoles, String claimSeparator) throws FrameworkException {
-        if (locallyMappedUserRoles != null && !locallyMappedUserRoles.isEmpty()) {
+        if (CollectionUtils.isNotEmpty(locallyMappedUserRoles)) {
 
             RoleMapping[] localToSpRoleMapping = serviceProvider.getPermissionAndRoleConfig().getRoleMappings();
 
-            if (localToSpRoleMapping == null || localToSpRoleMapping.length == 0) {
+            if (ArrayUtils.isEmpty(localToSpRoleMapping)) {
                 return null;
             }
 
