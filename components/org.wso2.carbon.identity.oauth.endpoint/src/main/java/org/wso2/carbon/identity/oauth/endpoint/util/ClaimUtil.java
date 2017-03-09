@@ -18,14 +18,20 @@
 
 package org.wso2.carbon.identity.oauth.endpoint.util;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
+import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
+import org.wso2.carbon.identity.application.common.model.RoleMapping;
 import org.wso2.carbon.identity.application.common.model.ServiceProvider;
 import org.wso2.carbon.identity.application.mgt.ApplicationManagementService;
 import org.wso2.carbon.identity.base.IdentityConstants;
 import org.wso2.carbon.identity.claim.metadata.mgt.ClaimMetadataHandler;
+import org.wso2.carbon.identity.core.util.IdentityCoreConstants;
 import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.oauth.dao.OAuthAppDO;
@@ -35,13 +41,16 @@ import org.wso2.carbon.identity.oauth2.dto.OAuth2TokenValidationResponseDTO;
 import org.wso2.carbon.identity.oauth2.internal.OAuth2ServiceComponentHolder;
 import org.wso2.carbon.identity.oauth2.model.AccessTokenDO;
 import org.wso2.carbon.identity.oauth2.util.OAuth2Util;
+import org.wso2.carbon.user.api.RealmConfiguration;
 import org.wso2.carbon.user.api.UserStoreException;
 import org.wso2.carbon.user.core.UserRealm;
 import org.wso2.carbon.user.core.UserStoreManager;
 import org.wso2.carbon.utils.multitenancy.MultitenantUtils;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -136,6 +145,20 @@ public class ClaimUtil {
                 }
 
                 for (Map.Entry<String, String> entry : userClaims.entrySet()) {
+                    //set local2sp role mappings
+                    if (FrameworkConstants.LOCAL_ROLE_CLAIM_URI.equals(entry.getKey())) {
+                        String domain = IdentityUtil.extractDomainFromName(username);
+                        RealmConfiguration realmConfiguration = realm.getUserStoreManager().getSecondaryUserStoreManager(domain)
+                                .getRealmConfiguration();
+                        String claimSeparator = realmConfiguration
+                                .getUserStoreProperty(IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR);
+
+                        String roleClaim = entry.getValue();
+                        List<String> rolesList = new LinkedList<>(Arrays.asList(roleClaim.split(claimSeparator)));
+                        roleClaim = getServiceProviderMappedUserRoles(serviceProvider, rolesList, claimSeparator);
+                        entry.setValue(roleClaim);
+                    }
+
                     String value = spToLocalClaimMappings.get(entry.getKey());
                     if (value != null) {
                         if (entry.getKey().equals(subjectClaimURI)) {
@@ -166,5 +189,37 @@ public class ClaimUtil {
             }
         }
         return mappedAppClaims;
+    }
+
+    /**
+     * @param serviceProvider
+     * @param locallyMappedUserRoles
+     */
+    public static String getServiceProviderMappedUserRoles(ServiceProvider serviceProvider,
+            List<String> locallyMappedUserRoles, String claimSeparator) throws FrameworkException {
+        if (CollectionUtils.isNotEmpty(locallyMappedUserRoles)) {
+            RoleMapping[] localToSpRoleMapping = serviceProvider.getPermissionAndRoleConfig().getRoleMappings();
+            if (ArrayUtils.isEmpty(localToSpRoleMapping)) {
+                return null;
+            }
+
+            StringBuilder spMappedUserRoles = new StringBuilder();
+            for (RoleMapping roleMapping : localToSpRoleMapping) {
+                if (locallyMappedUserRoles.contains(roleMapping.getLocalRole().getLocalRoleName())) {
+                    spMappedUserRoles.append(roleMapping.getRemoteRole()).append(claimSeparator);
+                    locallyMappedUserRoles.remove(roleMapping.getLocalRole().getLocalRoleName());
+                }
+            }
+
+            for (String remainingRole : locallyMappedUserRoles) {
+                spMappedUserRoles.append(remainingRole).append(claimSeparator);
+            }
+
+            return spMappedUserRoles.length() > 0 ?
+                    spMappedUserRoles.toString().substring(0, spMappedUserRoles.length() - 1) :
+                    null;
+        }
+
+        return null;
     }
 }

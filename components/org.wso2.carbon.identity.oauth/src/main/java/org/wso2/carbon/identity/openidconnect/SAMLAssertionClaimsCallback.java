@@ -21,6 +21,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import net.minidev.json.JSONArray;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -33,9 +34,12 @@ import org.opensaml.xml.XMLObject;
 import org.w3c.dom.Element;
 import org.wso2.carbon.base.MultitenantConstants;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
+import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatedUser;
+import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.common.IdentityApplicationManagementException;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
+import org.wso2.carbon.identity.application.common.model.RoleMapping;
 import org.wso2.carbon.identity.application.common.model.ServiceProvider;
 import org.wso2.carbon.identity.application.mgt.ApplicationManagementService;
 import org.wso2.carbon.identity.base.IdentityConstants;
@@ -63,14 +67,15 @@ import org.wso2.carbon.user.core.util.UserCoreUtil;
 import org.wso2.carbon.utils.multitenancy.MultitenantUtils;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
-import java.util.Enumeration;
-import java.util.Arrays;
 
 /**
  * Returns the claims of the SAML assertion
@@ -295,6 +300,12 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
             log.debug("Requested number of local claims: " + claimURIList.size());
         }
 
+        String domain = IdentityUtil.extractDomainFromName(username);
+        RealmConfiguration realmConfiguration = ((org.wso2.carbon.user.core.UserStoreManager)realm
+                .getUserStoreManager()).getSecondaryUserStoreManager(domain).getRealmConfiguration();
+        String claimSeparator = realmConfiguration.getUserStoreProperty(
+                IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR);
+
         Map<String, String> spToLocalClaimMappings = ClaimMetadataHandler.getInstance()
                 .getMappingsMapFromOtherDialectToCarbon(SP_DIALECT, null, spTenantDomain, false);
         Map<String, String> userClaims = null;
@@ -302,6 +313,18 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
             userClaims = realm.getUserStoreManager().getUserClaimValues(
                     MultitenantUtils.getTenantAwareUsername(username),
                     claimURIList.toArray(new String[claimURIList.size()]), null);
+
+            //set local2sp role mappings
+            for (Map.Entry<String, String> claim : userClaims.entrySet()) {
+                if (FrameworkConstants.LOCAL_ROLE_CLAIM_URI.equals(claim.getKey())) {
+                    String roleClaim = claim.getValue();
+                    List<String> rolesList = new LinkedList<>(Arrays.asList(roleClaim.split(claimSeparator)));
+
+                    String roles = getServiceProviderMappedUserRoles(serviceProvider, rolesList, claimSeparator);
+                    claim.setValue(roles);
+                    break;
+                }
+            }
         } catch (UserStoreException e) {
             if (e.getMessage().contains("UserNotFound")) {
                 if (log.isDebugEnabled()) {
@@ -337,16 +360,46 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
             }
         }
 
-        String domain = IdentityUtil.extractDomainFromName(username);
-        RealmConfiguration realmConfiguration = ((org.wso2.carbon.user.core.UserStoreManager)realm
-                .getUserStoreManager()).getSecondaryUserStoreManager(domain).getRealmConfiguration();
-        String claimSeparator = realmConfiguration.getUserStoreProperty(
-                IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR);
         if (StringUtils.isNotBlank(claimSeparator)) {
             mappedAppClaims.put(IdentityCoreConstants.MULTI_ATTRIBUTE_SEPARATOR, claimSeparator);
         }
 
         return mappedAppClaims;
+    }
+
+    /**
+     * @param serviceProvider
+     * @param locallyMappedUserRoles
+     * @return
+     */
+    private static String getServiceProviderMappedUserRoles(ServiceProvider serviceProvider,
+            List<String> locallyMappedUserRoles, String claimSeparator) throws FrameworkException {
+        if (CollectionUtils.isNotEmpty(locallyMappedUserRoles)) {
+
+            RoleMapping[] localToSpRoleMapping = serviceProvider.getPermissionAndRoleConfig().getRoleMappings();
+
+            if (ArrayUtils.isEmpty(localToSpRoleMapping)) {
+                return null;
+            }
+
+            StringBuilder spMappedUserRoles = new StringBuilder();
+            for (RoleMapping roleMapping : localToSpRoleMapping) {
+                if (locallyMappedUserRoles.contains(roleMapping.getLocalRole().getLocalRoleName())) {
+                    spMappedUserRoles.append(roleMapping.getRemoteRole()).append(claimSeparator);
+                    locallyMappedUserRoles.remove(roleMapping.getLocalRole().getLocalRoleName());
+                }
+            }
+
+            for (String remainingRole : locallyMappedUserRoles) {
+                spMappedUserRoles.append(remainingRole).append(claimSeparator);
+            }
+
+            return spMappedUserRoles.length() > 0 ?
+                    spMappedUserRoles.toString().substring(0, spMappedUserRoles.length() - 1) :
+                    null;
+        }
+
+        return null;
     }
 
     private static Map<String, Object> getClaimsFromUserStore(OAuthAuthzReqMessageContext requestMsgCtx)
