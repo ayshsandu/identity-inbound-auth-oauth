@@ -57,6 +57,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -1227,8 +1230,32 @@ public class TokenMgtDAO {
             ps.setString(3, authenticatedUser.getUserStoreDomain());
             ps.setString(4, OAuthConstants.TokenStates.TOKEN_STATE_ACTIVE);
             rs = ps.executeQuery();
+
+            long currentTimeInMillis;
+            String timeFormat = "yyyy-MMM-dd HH:mm:ss.S";
+            SimpleDateFormat dateFormatUTC = new SimpleDateFormat(timeFormat);
+            dateFormatUTC.setTimeZone(TimeZone.getTimeZone(UTC));
+            //Local time zone
+            SimpleDateFormat dateFormatLocal = new SimpleDateFormat(timeFormat);
+            String currentTime = dateFormatUTC.format(new Date());
+            try {
+                currentTimeInMillis = dateFormatLocal.parse(currentTime).getTime();
+            } catch (ParseException e) {
+                IdentityDatabaseUtil.rollBack(connection);
+                throw new IdentityOAuth2Exception("Error while parsing current time to UTC : " + currentTime , e);
+            }
+
             while (rs.next()){
-                authorizationCodes.add(rs.getString(1));
+                int validityPeriod = rs.getInt(3);
+                Timestamp timeCreated = rs.getTimestamp(2);
+                long issuedTimeInMillis = timeCreated.getTime();
+                long validityPeriodInMillis = validityPeriod;
+                long timestampSkew = OAuthServerConfiguration.getInstance().getTimeStampSkewInSeconds() * 1000;
+
+                // if authorization code is not expired.
+                if ((currentTimeInMillis - timestampSkew) < (issuedTimeInMillis + validityPeriodInMillis)) {
+                    authorizationCodes.add(rs.getString(1));
+                }
             }
             connection.commit();
         } catch (SQLException e) {
